@@ -26,5 +26,5 @@ A simple React chatbot frontend that connects with n8n workflows.
 
 Create a `.env` file in the root directory:
 ```env
-REACT_APP_N8N_WEBHOOK_URL=http://localhost:5678/webhook/chatbot
+REACT_APP_N8N_WEBHOOK_URL=https://agent-loop-hackathon.app.n8n.cloud/webhook-test/1e53d8a1-e8c8-4e04-9aa4-62de50e36f16
 ``` 

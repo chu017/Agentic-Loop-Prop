@@ -38,9 +38,16 @@ function App() {
     setIsLoading(true);
 
     try {
-      // Replace with your n8n webhook URL
-      const n8nWebhookUrl = process.env.REACT_APP_N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/chatbot';
+      // Get the webhook URL from environment variables
+      const n8nWebhookUrl = process.env.REACT_APP_N8N_WEBHOOK_URL;
       
+      console.log('Sending request to:', n8nWebhookUrl);
+      console.log('Request payload:', {
+        message: userMessage.text,
+        timestamp: new Date().toISOString(),
+        sessionId: 'user-session-' + Date.now()
+      });
+
       const response = await fetch(n8nWebhookUrl, {
         method: 'POST',
         headers: {
@@ -53,11 +60,17 @@ function App() {
         })
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
       if (!response.ok) {
-        throw new Error('Failed to get response from n8n');
+        const errorText = await response.text();
+        console.error('Response error:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('Response data:', data);
       
       const botMessage = {
         id: Date.now() + 1,
@@ -72,7 +85,7 @@ function App() {
       
       const errorMessage = {
         id: Date.now() + 1,
-        text: "I'm having trouble connecting to my backend. Please check your n8n workflow configuration.",
+        text: `Connection error: ${error.message}. Please check your n8n workflow configuration.`,
         sender: 'bot',
         timestamp: new Date()
       };
