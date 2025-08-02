@@ -1,53 +1,80 @@
 {
-  "name": "Chatbot Workflow",
+  "name": "AI Assistant Integration",
   "nodes": [
     {
+      "id": "webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        240,
+        300
+      ],
       "parameters": {
         "httpMethod": "POST",
-        "path": "chatbot",
-        "responseMode": "responseNode"
-      },
-      "id": "webhook-trigger",
-      "name": "Webhook Trigger",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
-      "position": [240, 300]
+        "path": "ai-assistant",
+        "responseMode": "responseNode",
+        "options": {}
+      }
     },
     {
+      "id": "http_request",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        460,
+        300
+      ],
       "parameters": {
-        "jsCode": "const userMessage = $input.first().json.message;\nconst response = {\n  response: `You said: \"${userMessage}\"\\n\\nThis is a test response from n8n.`\n};\nreturn response;"
-      },
-      "id": "process-message",
-      "name": "Process Message",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [460, 300]
+        "url": "http://localhost:5000/api/chat",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $json.message }}"
+            },
+            {
+              "name": "sessionId",
+              "value": "={{ $json.sessionId || 'n8n-session' }}"
+            }
+          ]
+        }
+      }
     },
     {
+      "id": "respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        680,
+        300
+      ],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ $json }}"
-      },
-      "id": "respond-to-webhook",
-      "name": "Respond to Webhook",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [680, 300]
+      }
     }
   ],
   "connections": {
-    "Webhook Trigger": {
+    "Webhook": {
       "main": [
         [
           {
-            "node": "Process Message",
+            "node": "HTTP Request",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Process Message": {
+    "HTTP Request": {
       "main": [
         [
           {
@@ -58,8 +85,5 @@
         ]
       ]
     }
-  },
-  "active": false,
-  "settings": {},
-  "versionId": "1"
-} 
+  }
+}

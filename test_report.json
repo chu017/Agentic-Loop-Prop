@@ -1,0 +1,19 @@
+{
+  "timestamp": "2025-08-02T23:37:22.857488",
+  "summary": {
+    "total": 8,
+    "passed": 4,
+    "failed": 4,
+    "success_rate": 50.0
+  },
+  "results": {
+    "Dependencies": false,
+    "AI System": true,
+    "Thermia API": true,
+    "Flask API": false,
+    "React Frontend": true,
+    "AI System Tests": false,
+    "Thermia API Tests": false,
+    "N8N Compatibility Tests": true
+  }
+}
