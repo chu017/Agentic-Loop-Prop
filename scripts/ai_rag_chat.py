@@ -27,6 +27,7 @@ try:
     from langchain.chains import RetrievalQA
     from langchain_community.llms import Ollama
     from langchain.prompts import PromptTemplate
+    from data_integration import get_data_integration_manager, HVACSystemData
 except ImportError as e:
     print(f"Error importing LangChain modules: {e}")
     print("Install with: pip install langchain langchain-community")
@@ -52,19 +53,18 @@ class AIRAGChat:
         self.model_name = model_name
         self.vectorstore = None
         self.qa_chain = None
-        self.thermia_integration = None
+        self.data_manager = None
         self._initialize_components()
     
     def _initialize_components(self):
         """Initialize all system components"""
-        # Initialize Thermia integration
+        # Initialize data integration manager
         try:
-            from thermia_integration import ThermiaHVACIntegration
-            self.thermia_integration = ThermiaHVACIntegration()
-            logger.info("Thermia integration initialized")
+            self.data_manager = get_data_integration_manager()
+            logger.info("Data integration manager initialized")
         except Exception as e:
-            logger.warning(f"Failed to initialize Thermia integration: {e}")
-            self.thermia_integration = None
+            logger.warning(f"Failed to initialize data integration manager: {e}")
+            self.data_manager = None
         
         # Initialize vector store
         self._load_context()
@@ -104,8 +104,7 @@ class AIRAGChat:
             
             # Create embeddings and vector store
             embeddings = HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2",
-                model_kwargs={'device': 'cpu'}
+                model_name="sentence-transformers/all-MiniLM-L6-v2"
             )
             
             self.vectorstore = FAISS.from_texts(all_splits, embeddings)
@@ -116,66 +115,87 @@ class AIRAGChat:
             raise
     
     def _get_default_knowledge(self) -> str:
-        """Get default knowledge base content"""
+        """Get default HVAC knowledge base"""
         return """
-        AI Assistant Knowledge Base
+        HVAC Systems and Thermia Heat Pumps
         
-        GENERAL CAPABILITIES:
-        This AI assistant is designed to help with various tasks including:
-        - Answering questions and providing information
-        - Problem solving and troubleshooting
-        - Data analysis and interpretation
-        - Code review and development assistance
-        - Document analysis and summarization
+        Thermia heat pumps are high-efficiency heating and cooling systems that extract heat from the environment. 
+        They use refrigerant to transfer heat between indoor and outdoor units.
         
-        RESPONSE GUIDELINES:
-        - Provide accurate and helpful information
-        - Be concise but comprehensive
-        - Use clear and professional language
-        - Cite sources when appropriate
-        - Admit when information is not available
+        Key Components:
+        - Compressor: The heart of the system that circulates refrigerant
+        - Evaporator: Absorbs heat from the environment
+        - Condenser: Releases heat to the indoor space
+        - Expansion valve: Controls refrigerant flow
         
-        INTERACTION PROTOCOLS:
-        - Maintain professional and helpful tone
-        - Ask clarifying questions when needed
-        - Provide step-by-step guidance when appropriate
-        - Offer multiple solutions when possible
-        - Follow up to ensure understanding
+        Common Thermia Models:
+        - Diplomat Duo: High-efficiency dual-mode heat pump
+        - Calibra: Compact and efficient residential system
+        - Atlas: Commercial-grade heat pump system
+        - Mega: Large capacity system for commercial applications
         
-        TECHNICAL EXPERTISE:
-        - Programming and software development
-        - System administration and IT support
-        - Data analysis and visualization
-        - Web development and design
-        - Database management and optimization
+        Operation Modes:
+        - Heating: Provides space heating
+        - Cooling: Provides air conditioning
+        - Auto: Automatically switches between heating and cooling
+        - DHW: Domestic hot water production
         
-        BEST PRACTICES:
-        - Always verify information accuracy
-        - Provide context for recommendations
-        - Consider security implications
-        - Suggest improvements when possible
-        - Document processes and procedures
+        Temperature Control:
+        - Heat temperature: Target heating temperature
+        - Indoor temperature: Current indoor temperature
+        - Outdoor temperature: Current outdoor temperature
+        - Hot water temperature: Domestic hot water temperature
+        
+        System Monitoring:
+        - Compressor operational time: Total running hours
+        - Active alarms: Current system issues
+        - Operational status: Current system state
+        - Efficiency indicators: Performance metrics
+        
+        Maintenance:
+        - Regular filter cleaning
+        - Annual professional inspection
+        - Refrigerant level checks
+        - Electrical component testing
+        
+        Troubleshooting:
+        - Low refrigerant pressure: Check for leaks
+        - High temperature differential: Check insulation
+        - Compressor issues: Check electrical connections
+        - Poor efficiency: Check filters and settings
         """
     
     def _setup_qa_chain(self):
-        """Setup the question-answering chain"""
+        """Setup the QA chain with Ollama"""
         try:
             # Initialize Ollama LLM
-            llm = Ollama(model=self.model_name)
+            llm = Ollama(
+                model=self.model_name,
+                temperature=0.7,
+                timeout=30
+            )
             
             # Create prompt template
-            prompt_template = """Use the following pieces of context to answer the question at the end. 
-            If you don't know the answer, just say that you don't know, don't try to make up an answer.
+            prompt_template = """You are an expert HVAC technician specializing in Thermia heat pump systems. 
+            Use the following context and live system data to answer the user's question.
             
-            Context: {context}
+            Context information:
+            {context}
             
-            Question: {question}
+            Live system data (if available):
+            {system_data}
+            
+            User question: {question}
+            
+            Provide a comprehensive, accurate, and helpful response based on the context and live data. 
+            If the question involves system data, reference the actual values from the live data.
+            If you don't have enough information, say so and suggest what additional data might be needed.
             
             Answer:"""
             
             prompt = PromptTemplate(
                 template=prompt_template,
-                input_variables=["context", "question"]
+                input_variables=["context", "system_data", "question"]
             )
             
             # Create QA chain
@@ -192,40 +212,57 @@ class AIRAGChat:
             logger.error(f"Error setting up QA chain: {e}")
             raise
     
-    def ask_question(self, question: str) -> str:
-        """Ask a question and get an answer from the knowledge base"""
+    def ask_question(self, question: str, system_id: Optional[str] = None) -> str:
+        """Ask a question and get AI response with live data integration"""
         try:
-            if not self.qa_chain:
-                return "AI system is not properly initialized. Please check the setup."
+            # Get live system data if available
+            system_data = ""
+            if self.data_manager and system_id:
+                systems = self.data_manager.get_live_system_data(system_id)
+                if systems:
+                    system = systems[0]
+                    system_data = f"""
+                    Current System Status:
+                    - Name: {system.name}
+                    - Model: {system.model}
+                    - Online: {system.is_online}
+                    - Indoor Temperature: {system.indoor_temperature}°C
+                    - Outdoor Temperature: {system.outdoor_temperature}°C
+                    - Heat Temperature: {system.heat_temperature}°C
+                    - Hot Water Temperature: {system.hot_water_temperature}°C
+                    - Operation Mode: {system.operation_mode}
+                    - Active Alarms: {', '.join(system.active_alarms) if system.active_alarms else 'None'}
+                    - Compressor Hours: {system.compressor_operational_time} hours
+                    """
             
-            # Get answer from QA chain
-            result = self.qa_chain.run(question)
-            
-            # Log the interaction
-            logger.info(f"Question: {question}")
-            logger.info(f"Answer: {result}")
-            
-            return result
-            
+            # Get response from QA chain
+            if self.qa_chain:
+                response = self.qa_chain.run({
+                    "context": "HVAC and Thermia heat pump knowledge",
+                    "system_data": system_data,
+                    "question": question
+                })
+                return response
+            else:
+                return "AI system not properly initialized. Please check the logs."
+                
         except Exception as e:
             logger.error(f"Error asking question: {e}")
-            return f"I encountered an error while processing your question: {str(e)}"
+            return f"I'm sorry, I encountered an error while processing your question: {str(e)}"
     
     def search_knowledge_base(self, query: str, max_results: int = 5) -> List[Dict]:
-        """Search the knowledge base for relevant information"""
+        """Search the knowledge base"""
         try:
             if not self.vectorstore:
                 return []
             
-            # Search for similar documents
             docs = self.vectorstore.similarity_search(query, k=max_results)
-            
             results = []
-            for i, doc in enumerate(docs):
+            
+            for doc in docs:
                 results.append({
-                    'rank': i + 1,
-                    'content': doc.page_content,
-                    'metadata': doc.metadata
+                    "content": doc.page_content,
+                    "metadata": doc.metadata
                 })
             
             return results
@@ -235,144 +272,168 @@ class AIRAGChat:
             return []
     
     def get_system_status(self) -> Dict:
-        """Get the current system status"""
+        """Get comprehensive system status"""
         try:
             status = {
-                'model_name': self.model_name,
-                'vectorstore_loaded': self.vectorstore is not None,
-                'qa_chain_ready': self.qa_chain is not None,
-                'thermia_integration': self.thermia_integration is not None,
-                'context_files_count': len(list(self.context_dir.glob("*.txt"))) if self.context_dir.exists() else 0,
-                'timestamp': datetime.now().isoformat()
+                "ai_system": "operational",
+                "knowledge_base": "loaded",
+                "vector_store": "initialized",
+                "data_integration": "operational" if self.data_manager else "not_available",
+                "timestamp": datetime.now().isoformat()
             }
+            
+            # Add data integration status
+            if self.data_manager:
+                try:
+                    systems = self.data_manager.get_live_system_data()
+                    status["connected_systems"] = len(systems)
+                    status["data_source"] = "live_api" if not self.data_manager.use_mock_data else "mock_data"
+                except Exception as e:
+                    status["data_integration"] = f"error: {str(e)}"
             
             return status
             
         except Exception as e:
             logger.error(f"Error getting system status: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}
     
     def get_hvac_systems(self) -> List[Dict]:
-        """Get all HVAC systems"""
-        if not self.thermia_integration:
-            return []
-        
+        """Get all HVAC systems with live data"""
         try:
-            systems = self.thermia_integration.fetch_heat_pumps()
-            return [
-                {
-                    'id': system.id,
-                    'name': system.name,
-                    'model': system.model,
-                    'is_online': system.is_online,
-                    'indoor_temperature': system.indoor_temperature,
-                    'outdoor_temperature': system.outdoor_temperature,
-                    'hot_water_temperature': system.hot_water_temperature,
-                    'heat_temperature': system.heat_temperature,
-                    'operation_mode': system.operation_mode,
-                    'active_alarms': system.active_alarms,
-                    'compressor_operational_time': system.compressor_operational_time,
-                    'last_online': system.last_online
-                }
-                for system in systems
-            ]
+            if not self.data_manager:
+                return []
+            
+            systems = self.data_manager.get_live_system_data()
+            return [asdict(system) for system in systems]
+            
         except Exception as e:
             logger.error(f"Error getting HVAC systems: {e}")
             return []
     
     def diagnose_hvac_system(self, system_id: str) -> Dict:
-        """Diagnose a specific HVAC system"""
-        if not self.thermia_integration:
-            return {'error': 'Thermia integration not available'}
-        
+        """Diagnose HVAC system using live data and knowledge"""
         try:
-            diagnosis = self.thermia_integration.diagnose_system(system_id)
-            return {
-                'system_id': diagnosis.system_id,
-                'timestamp': diagnosis.timestamp.isoformat(),
-                'status': diagnosis.status,
-                'issues': diagnosis.issues,
-                'recommendations': diagnosis.recommendations,
-                'efficiency_score': diagnosis.efficiency_score
-            }
+            if not self.data_manager:
+                return {"error": "Data integration not available"}
+            
+            # Get diagnosis from data manager
+            diagnosis = self.data_manager.get_system_diagnosis(system_id)
+            
+            # Enhance with AI analysis
+            if diagnosis and "error" not in diagnosis:
+                question = f"Based on the system diagnosis: {json.dumps(diagnosis)}, what are the key issues and recommendations?"
+                ai_analysis = self.ask_question(question, system_id)
+                diagnosis["ai_analysis"] = ai_analysis
+            
+            return diagnosis
+            
         except Exception as e:
             logger.error(f"Error diagnosing HVAC system: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}
     
     def get_hvac_optimization_suggestions(self, system_id: str) -> List[str]:
-        """Get optimization suggestions for HVAC system"""
-        if not self.thermia_integration:
-            return ["Thermia integration not available"]
-        
+        """Get optimization suggestions based on live data"""
         try:
-            return self.thermia_integration.get_optimization_suggestions(system_id)
+            if not self.data_manager:
+                return ["Data integration not available"]
+            
+            # Get suggestions from data manager
+            suggestions = self.data_manager.get_optimization_suggestions(system_id)
+            
+            # Enhance with AI analysis
+            if suggestions:
+                question = f"Based on these optimization suggestions: {suggestions}, what additional recommendations would you make for improving HVAC efficiency?"
+                ai_suggestions = self.ask_question(question, system_id)
+                suggestions.append(f"AI Recommendation: {ai_suggestions}")
+            
+            return suggestions
+            
         except Exception as e:
             logger.error(f"Error getting optimization suggestions: {e}")
-            return [f"Error: {str(e)}"]
+            return ["Unable to generate suggestions"]
     
     def set_hvac_temperature(self, system_id: str, temperature: float) -> bool:
         """Set temperature for HVAC system"""
-        if not self.thermia_integration:
-            return False
-        
         try:
-            return self.thermia_integration.set_temperature(system_id, temperature)
+            if not self.data_manager:
+                return False
+            
+            return self.data_manager.set_system_temperature(system_id, temperature)
+            
         except Exception as e:
             logger.error(f"Error setting HVAC temperature: {e}")
             return False
     
     def set_hvac_operation_mode(self, system_id: str, mode: str) -> bool:
         """Set operation mode for HVAC system"""
-        if not self.thermia_integration:
-            return False
-        
         try:
-            return self.thermia_integration.set_operation_mode(system_id, mode)
+            if not self.data_manager:
+                return False
+            
+            return self.data_manager.set_system_operation_mode(system_id, mode)
+            
         except Exception as e:
             logger.error(f"Error setting HVAC operation mode: {e}")
             return False
     
     def get_hvac_status_summary(self) -> str:
-        """Get HVAC systems status summary"""
-        if not self.thermia_integration:
-            return "Thermia integration not available"
-        
+        """Get summary of all HVAC systems"""
         try:
-            return self.thermia_integration.get_system_status_summary()
+            if not self.data_manager:
+                return "Data integration not available"
+            
+            systems = self.data_manager.get_live_system_data()
+            if not systems:
+                return "No HVAC systems found"
+            
+            summary = f"HVAC Systems Summary ({len(systems)} systems):\n"
+            
+            for system in systems:
+                status = "🟢 Online" if system.is_online else "🔴 Offline"
+                alarms = f" ({len(system.active_alarms)} alarms)" if system.active_alarms else ""
+                summary += f"- {system.name} ({system.model}): {status}{alarms}\n"
+                summary += f"  Temperature: {system.indoor_temperature}°C indoor, {system.outdoor_temperature}°C outdoor\n"
+                summary += f"  Mode: {system.operation_mode}, Heat: {system.heat_temperature}°C\n"
+            
+            return summary
+            
         except Exception as e:
             logger.error(f"Error getting HVAC status summary: {e}")
-            return f"Error: {str(e)}"
+            return f"Error getting status summary: {str(e)}"
     
     def add_knowledge(self, content: str, metadata: Optional[Dict] = None) -> bool:
-        """Add new knowledge to the vector store"""
+        """Add new knowledge to the system"""
         try:
             if not self.vectorstore:
-                logger.error("Vector store not initialized")
                 return False
             
-            # Add new content to vector store
+            # Add to vector store
             embeddings = HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2",
-                model_kwargs={'device': 'cpu'}
+                model_name="sentence-transformers/all-MiniLM-L6-v2"
             )
             
-            self.vectorstore.add_texts([content], metadatas=[metadata or {}])
-            logger.info("Added new knowledge to vector store")
+            # Split the new content
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200,
+                length_function=len,
+            )
             
+            splits = text_splitter.split_text(content)
+            
+            # Add to existing vector store
+            self.vectorstore.add_texts(splits, metadatas=[metadata or {}] * len(splits))
+            
+            logger.info(f"Added {len(splits)} new knowledge chunks")
             return True
             
         except Exception as e:
             logger.error(f"Error adding knowledge: {e}")
             return False
 
-def get_ai_rag_chat() -> AIRAGChat:
-    """Get or create AI RAG chat instance"""
-    global _ai_rag_chat_instance
-    
-    if not hasattr(get_ai_rag_chat, '_ai_rag_chat_instance'):
-        get_ai_rag_chat._ai_rag_chat_instance = AIRAGChat()
-    
-    return get_ai_rag_chat._ai_rag_chat_instance
+def get_ai_system() -> AIRAGChat:
+    """Get or create AI system instance"""
+    return AIRAGChat()
 
 if __name__ == "__main__":
     # Test the AI RAG chat system
