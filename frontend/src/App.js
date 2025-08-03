@@ -12,6 +12,9 @@ function App() {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+  const [availableModels, setAvailableModels] = useState({});
+  const [selectedModel, setSelectedModel] = useState('anthropic/claude-3.5-sonnet');
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -21,6 +24,26 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    // Generate session ID on component mount
+    setSessionId('session-' + Date.now());
+    
+    // Fetch available models
+    fetchAvailableModels();
+  }, []);
+
+  const fetchAvailableModels = async () => {
+    try {
+      const response = await fetch('http://localhost:5001/api/chat/models');
+      const data = await response.json();
+      if (data.success) {
+        setAvailableModels(data.models);
+      }
+    } catch (error) {
+      console.error('Error fetching models:', error);
+    }
+  };
 
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -38,54 +61,44 @@ function App() {
     setIsLoading(true);
 
     try {
-      // Get the webhook URL from environment variables
-      const n8nWebhookUrl = process.env.REACT_APP_N8N_WEBHOOK_URL;
-      
-      console.log('Sending request to:', n8nWebhookUrl);
-      console.log('Request payload:', {
-        message: userMessage.text,
-        timestamp: new Date().toISOString(),
-        sessionId: 'user-session-' + Date.now()
-      });
-
-      const response = await fetch(n8nWebhookUrl, {
+      const response = await fetch('http://localhost:5001/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           message: userMessage.text,
-          timestamp: new Date().toISOString(),
-          sessionId: 'user-session-' + Date.now()
+          sessionId: sessionId,
+          model: selectedModel
         })
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Response error:', errorText);
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
-      console.log('Response data:', data);
       
-      const botMessage = {
-        id: Date.now() + 1,
-        text: data.response || "I'm sorry, I couldn't process your request. Please try again.",
-        sender: 'bot',
-        timestamp: new Date()
-      };
+      if (data.success) {
+        const botMessage = {
+          id: Date.now() + 1,
+          text: data.response,
+          sender: 'bot',
+          timestamp: new Date(),
+          model: data.model
+        };
 
-      setMessages(prev => [...prev, botMessage]);
+        setMessages(prev => [...prev, botMessage]);
+      } else {
+        throw new Error(data.error || 'Failed to get response');
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       
       const errorMessage = {
         id: Date.now() + 1,
-        text: `Connection error: ${error.message}. Please check your n8n workflow configuration.`,
+        text: `Error: ${error.message}. Please check your connection and try again.`,
         sender: 'bot',
         timestamp: new Date()
       };
@@ -93,6 +106,32 @@ function App() {
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const clearConversation = async () => {
+    if (sessionId) {
+      try {
+        await fetch(`http://localhost:5001/api/chat/history/${sessionId}`, {
+          method: 'DELETE'
+        });
+        
+        // Generate new session ID
+        const newSessionId = 'session-' + Date.now();
+        setSessionId(newSessionId);
+        
+        // Reset messages
+        setMessages([
+          {
+            id: Date.now(),
+            text: "Hello! I'm your PropAI assistant. How can I help you today?",
+            sender: 'bot',
+            timestamp: new Date()
+          }
+        ]);
+      } catch (error) {
+        console.error('Error clearing conversation:', error);
+      }
     }
   };
 
@@ -114,11 +153,21 @@ function App() {
             </div>
             <div className="header-info">
               <h2>PropAI</h2>
-              <p>Connected to n8n workflow</p>
+              <p>AI Assistant with LLM Integration</p>
             </div>
-            <div className="status-indicator">
-              <div className="status-dot"></div>
-              <span>Online</span>
+            <div className="header-controls">
+              <select 
+                value={selectedModel} 
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="model-selector"
+              >
+                {Object.entries(availableModels).map(([key, value]) => (
+                  <option key={key} value={key}>{value}</option>
+                ))}
+              </select>
+              <button onClick={clearConversation} className="clear-button">
+                Clear Chat
+              </button>
             </div>
           </div>
         </div>
@@ -131,8 +180,15 @@ function App() {
                 <div className="message-content">
                   {message.text}
                 </div>
-                <div className="message-time">
-                  {formatTime(message.timestamp)}
+                <div className="message-meta">
+                  <span className="message-time">
+                    {formatTime(message.timestamp)}
+                  </span>
+                  {message.model && (
+                    <span className="message-model">
+                      {availableModels[message.model] || message.model}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

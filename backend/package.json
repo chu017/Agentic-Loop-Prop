@@ -1,7 +1,7 @@
 {
-  "name": "propai-server",
+  "name": "propai-backend",
   "version": "1.0.0",
-  "description": "Backend server for PropAI agent",
+  "description": "Backend server for PropAI agent with LLM integration",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -15,12 +15,15 @@
     "axios": "^1.4.0",
     "openai": "^4.0.0",
     "helmet": "^7.0.0",
-    "morgan": "^1.10.0"
+    "morgan": "^1.10.0",
+    "uuid": "^9.0.0",
+    "rate-limiter-flexible": "^2.4.2",
+    "express-rate-limit": "^6.7.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": ["ai", "agent", "chatbot", "express"],
+  "keywords": ["ai", "agent", "chatbot", "express", "openrouter", "llm"],
   "author": "",
   "license": "MIT"
 } 

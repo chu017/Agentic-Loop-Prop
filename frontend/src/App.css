@@ -304,6 +304,63 @@
   100% { transform: rotate(360deg); }
 }
 
+/* Header Controls */
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.model-selector {
+  padding: 8px 12px;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  background: white;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.model-selector:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.clear-button {
+  padding: 8px 16px;
+  background: #f8f9fa;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  color: #6c757d;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-button:hover {
+  background: #e9ecef;
+  color: #495057;
+}
+
+/* Message Meta */
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.message-model {
+  background: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #495057;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .App {
