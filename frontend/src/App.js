@@ -13,8 +13,6 @@ function App() {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
-  const [availableModels, setAvailableModels] = useState({});
-  const [selectedModel, setSelectedModel] = useState('anthropic/claude-3.5-sonnet');
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -28,22 +26,7 @@ function App() {
   useEffect(() => {
     // Generate session ID on component mount
     setSessionId('session-' + Date.now());
-    
-    // Fetch available models
-    fetchAvailableModels();
   }, []);
-
-  const fetchAvailableModels = async () => {
-    try {
-      const response = await fetch('http://localhost:5001/api/chat/models');
-      const data = await response.json();
-      if (data.success) {
-        setAvailableModels(data.models);
-      }
-    } catch (error) {
-      console.error('Error fetching models:', error);
-    }
-  };
 
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -68,8 +51,7 @@ function App() {
         },
         body: JSON.stringify({
           message: userMessage.text,
-          sessionId: sessionId,
-          model: selectedModel
+          sessionId: sessionId
         })
       });
 
@@ -153,18 +135,9 @@ function App() {
             </div>
             <div className="header-info">
               <h2>PropAI</h2>
-              <p>AI Assistant with LLM Integration</p>
+              <p>AI Assistant with DeepSeek R1 0528</p>
             </div>
             <div className="header-controls">
-              <select 
-                value={selectedModel} 
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="model-selector"
-              >
-                {Object.entries(availableModels).map(([key, value]) => (
-                  <option key={key} value={key}>{value}</option>
-                ))}
-              </select>
               <button onClick={clearConversation} className="clear-button">
                 Clear Chat
               </button>
@@ -184,11 +157,6 @@ function App() {
                   <span className="message-time">
                     {formatTime(message.timestamp)}
                   </span>
-                  {message.model && (
-                    <span className="message-model">
-                      {availableModels[message.model] || message.model}
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
