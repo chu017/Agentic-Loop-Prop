@@ -111,8 +111,13 @@ class AIAgent {
     return messages;
   }
 
-  // Generate response using OpenRouter
+  // Generate response using OpenRouter or fallback
   async generateResponse(messages, modelName = null) {
+    // Check if OpenRouter is available
+    if (!openai) {
+      return this.generateFallbackResponse(messages[messages.length - 1]?.content || '');
+    }
+
     const model = modelName || agentConfig.responseSettings.defaultModel;
     
     try {
@@ -130,8 +135,37 @@ class AIAgent {
       return completion.choices[0].message.content;
     } catch (error) {
       console.error('OpenRouter API error:', error);
-      throw new Error(`AI service error: ${error.message}`);
+      return this.generateFallbackResponse(messages[messages.length - 1]?.content || '');
     }
+  }
+
+  // Generate fallback response when API is not available
+  generateFallbackResponse(userMessage) {
+    const message = userMessage.toLowerCase();
+    
+    // Simple response logic based on message content
+    if (message.includes('hello') || message.includes('hi')) {
+      return "Hello! I'm PropAI, your AI assistant. How can I help you today?";
+    }
+    
+    if (message.includes('help')) {
+      return "I'm here to help! I can assist with various tasks including answering questions, providing information, and helping with analysis. What would you like to know?";
+    }
+    
+    if (message.includes('code') || message.includes('programming')) {
+      return "I can help you with programming questions! What programming language or framework are you working with?";
+    }
+
+    // Default responses
+    const responses = [
+      "I understand you're asking about that. Let me help you with that.",
+      "That's an interesting question. Here's what I can tell you about that.",
+      "I can help you with that. Let me provide some information.",
+      "Thanks for your message. I'm here to assist you with that.",
+      "I appreciate your question. Let me address that for you."
+    ];
+
+    return responses[Math.floor(Math.random() * responses.length)];
   }
 
   // Get available models

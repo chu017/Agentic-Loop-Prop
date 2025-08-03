@@ -9,11 +9,14 @@ const openRouterConfig = {
   temperature: parseFloat(process.env.TEMPERATURE) || 0.7,
 };
 
-// Initialize OpenAI client for OpenRouter
-const openai = new OpenAI({
-  baseURL: openRouterConfig.baseURL,
-  apiKey: openRouterConfig.apiKey,
-});
+// Initialize OpenAI client for OpenRouter (only if API key is available)
+let openai = null;
+if (openRouterConfig.apiKey) {
+  openai = new OpenAI({
+    baseURL: openRouterConfig.baseURL,
+    apiKey: openRouterConfig.apiKey,
+  });
+}
 
 // Available models on OpenRouter
 const availableModels = {
