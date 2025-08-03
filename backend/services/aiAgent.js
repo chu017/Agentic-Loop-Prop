@@ -118,7 +118,7 @@ class AIAgent {
       return this.generateFallbackResponse(messages[messages.length - 1]?.content || '');
     }
 
-    const model = modelName || agentConfig.responseSettings.defaultModel;
+    const model = modelName || process.env.DEFAULT_MODEL || 'deepseek/deepseek-r1-0528:free';
     
     try {
       const completion = await openai.chat.completions.create({

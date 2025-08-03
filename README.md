@@ -45,12 +45,10 @@ npm install
 ### 3. Run the Application
 ```bash
 # Backend (port 5001)
-cd backend
-npm start
+cd backend && npm start
 
 # Frontend (port 3000)
-cd frontend
-npm start
+cd frontend && npm start
 ```
 
 ## 🔑 Required Setup
@@ -61,6 +59,7 @@ npm start
    - Add to `backend/.env`:
    ```env
    OPENROUTER_API_KEY=your_api_key_here
+   DEFAULT_MODEL=deepseek-ai/deepseek-coder-r1-0528
    ```
 
 ## 📡 API Endpoints
@@ -71,7 +70,8 @@ npm start
 
 ## 🤖 Available Models
 
-- Claude 3.5 Sonnet (default)
+- DeepSeek R1 0528 (default - free)
+- Claude 3.5 Sonnet
 - GPT-4o
 - Llama 3.1 70B
 - Gemini Pro
@@ -80,8 +80,7 @@ npm start
 
 1. **Start both services**
 2. **Open frontend:** http://localhost:3000
-3. **Select AI model** from dropdown
-4. **Start chatting** with the AI agent
+3. **Start chatting** with the AI agent
 
 ## 🔧 Environment Variables
 
@@ -89,6 +88,6 @@ npm start
 # Backend (.env)
 PORT=5001
 OPENROUTER_API_KEY=your_key_here
-DEFAULT_MODEL=anthropic/claude-3.5-sonnet
+DEFAULT_MODEL=deepseek-ai/deepseek-coder-r1-0528
 ALLOWED_ORIGINS=http://localhost:3000
 ``` 

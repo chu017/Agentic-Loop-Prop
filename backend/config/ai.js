@@ -4,7 +4,7 @@ const OpenAI = require('openai');
 const openRouterConfig = {
   baseURL: 'https://openrouter.ai/api/v1',
   apiKey: process.env.OPENROUTER_API_KEY,
-  defaultModel: process.env.DEFAULT_MODEL || 'deepseek-ai/deepseek-coder-r1-0528',
+  defaultModel: process.env.DEFAULT_MODEL || 'deepseek/deepseek-r1-0528:free',
   maxTokens: parseInt(process.env.MAX_TOKENS) || 1000,
   temperature: parseFloat(process.env.TEMPERATURE) || 0.7,
 };
@@ -20,7 +20,7 @@ if (openRouterConfig.apiKey) {
 
 // Available models on OpenRouter
 const availableModels = {
-  'deepseek-ai/deepseek-coder-r1-0528': 'DeepSeek R1 0528 (Free)',
+  'deepseek/deepseek-r1-0528:free': 'DeepSeek R1 0528 (Free)',
   'anthropic/claude-3.5-sonnet': 'Claude 3.5 Sonnet',
   'anthropic/claude-3-opus': 'Claude 3 Opus',
   'openai/gpt-4o': 'GPT-4o',
